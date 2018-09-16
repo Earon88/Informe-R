@@ -1,0 +1,183 @@
+---
+title: "Informe R"
+author: "Eduardo Guajardo"
+date: "12 de septiembre de 2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE, cache=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(readr)
+library(ggmap)
+library(knitr)
+library(tinytex)
+
+parks <- read_csv("C:/Users/Kraden/OneDrive - Universidad Andres Bello/Academia/Trabajo PUC/Doctorado/Curso de R/Evaluacion 1/parks.csv")
+species <- read_csv("C:/Users/Kraden/OneDrive - Universidad Andres Bello/Academia/Trabajo PUC/Doctorado/Curso de R/Evaluacion 1/species.csv")
+BD<- full_join(species, parks)  #se unen ambas bases de datos
+
+BD<- BD %>% rename(Spp= `Scientific Name`, Park.name= `Park Name`, Nombre.comun= `Common Names`,Con.status= `Conservation Status`)
+
+```
+<style>
+.reveal h1, .reveal h2, .reveal h3 {
+  word-warp: normal;
+  -moz hyphens: none;
+}
+</style>
+
+## Introduccion
+
+Conocer la biodiversidad nacional es de gran 
+Biodiversidad nacional: 
+
+
+- Riqueza de especies
+- Patrones biogeograficos
+- Estado de conservacion 
+- Servicios ecosistemicos
+
+¿Cúal es la diversidad asociada a parques nacionales? 
+
+
+## Distribucion de especies en PN
+<div style="float: left; with: 60%"> 
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, cache= TRUE, out.width= "75%", fig.align="left"} 
+
+
+spp.totales<- BD %>% filter(Category== "Vascular Plant") %>% dplyr::select_("Park.name", "Latitude", "Longitude", "Con.status", "Spp", "Acres") %>% group_by(Park.name, Latitude, Longitude, Acres) %>% summarize(Riqueza= n_distinct(Spp))
+
+
+brks<- round (seq(from= 500, to = 7000, by= 500))
+
+map <- get_map(location = "Estados Unidos", zoom= 3, maptype = "satellite") 
+
+Mapa<- ggmap(map) + geom_point(data= spp.totales, aes(x= Longitude, y= Latitude, size= Riqueza), color= "Red", alpha= 0.7)
+Mapa + scale_size_continuous(breaks= brks)
+
+```
+</div>
+<div style= "float: right; with: 40%"> 
+
+<small> Fig.1: Riqueza de plantas vasculares en parques nacionales. En el grafico se pueden apreciar una distribucion no homogenea de de lugares con parques   nacioanles, asi como tambien de la riqueza asociada a esos parques. Con un promedio de riqueza de `r round(mean(spp.totales$Riqueza))` y `r round(sd(spp.totales$Riqueza))` </small>
+
+</div>
+
+## Distribucion de especies en PN 
+```{r, echo=FALSE, warning=FALSE, message=FALSE, cache= TRUE, out.width= "80%"}
+Plant <- BD %>% filter(Category == "Vascular Plant") %>% select("Latitude", "Longitude", "Family", "Park.name") %>% 
+   group_by(Family) %>% summarize(n= n(), lat= mean(Latitude), lon= mean (Longitude)) %>% filter(n== 1) %>% 
+  group_by(lat, lon) %>% summarize(N= n())
+
+Mapa2<- ggmap(map) + geom_jitter(data= Plant, aes(x= lon, y= lat, size= N), alpha= 0.7, color= "yellow")
+Mapa2
+
+```
+<div style= "float: right; with: 40%"> 
+
+<small>Fig.2: Familias unicas presentes en PN. Se puede apreciar la presencia de una y hasta cuatro familias de plantas que solo fueron cuantificadas para un unico PN.</small>
+
+</div>
+
+
+## Distribucion de Familias de plantas unicas en parques nacionales
+
+```{r, out.width = "75%", echo=FALSE, message=FALSE, cache=TRUE}
+library(dplyr)
+library(ggplot2)
+
+AxR<- BD %>% filter(Category== "Vascular Plant") %>% group_by(Park.name) %>% summarize(Area= mean(Acres), Riqueza= n_distinct(Spp)) %>% mutate (Area= Area*0.00404686)
+
+ggplot(AxR, aes(x= Area, y= Riqueza))+ geom_point()
+```
+
+- Riqueza de especies es dependiente del area del parque? 
+ 
+
+
+
+## Resumen de modelos
+
+```{r, echo = FALSE, out.width= "60%"}
+library(broom)
+library(knitr)
+
+fit1<- lm(Riqueza~ Area, data= AxR)
+fit2<- lm(Riqueza~ I(log(Area)), data = AxR)
+fit3<- lm(Riqueza~ I(log(Area^2)), data = AxR)
+
+Modelo1 <-glance(fit1) %>% dplyr::select(r.squared, df, AIC) %>% mutate(Modelo = "Fit1")
+Modelo2 <-glance(fit2) %>% dplyr::select(r.squared, df, AIC) %>% mutate(Modelo = "Fit2")
+Modelo3 <-glance(fit3) %>% dplyr::select(r.squared, df, AIC) %>% mutate(Modelo = "Fit3")
+
+Modelos<- bind_rows(Modelo1, Modelo2, Modelo3) %>% arrange(AIC)
+
+kable(Modelos)
+
+
+```
+
+
+
+- Modelos con ecuaciones
+- Modelo 1: $y= x$
+- Modelo 2: $y= log(x)$ 
+- Modelo 3: $y= log(x^2)$
+
+
+## Modelo de Riqueza de especies en funcion del area. 
+
+```{r, echo = FALSE, out.width= "80%"}
+AxR$Pred<- predict(fit3, AxR, se.fit = TRUE)$fit
+AxR$SE <- predict(fit3, AxR, se.fit= TRUE)$se.fit
+
+ggplot(AxR, aes(x=Area, y= Pred))+ geom_ribbon(aes(ymin= Pred-SE, ymax= Pred+SE), alpha= 0.5)+
+  geom_line()+ geom_point(x= AxR$Area, y= AxR$Riqueza)
+
+```
+
+Fig.4: Curva modelo con la forma $y= log(x^2)$.
+
+## FIN :D 
+<style>
+.midcenter {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+}
+</style>
+
+![](C:/Users/Kraden/OneDrive - Universidad Andres Bello/Academia/Trabajo PUC/Doctorado/Curso de R/Evaluacion 1/Presentacion-R/gracias.jpg)
+
+
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

@@ -1,0 +1,185 @@
+---
+title: "Informe Eduardo Guajardo"
+author: "Eduardo Guajardo"
+date: "15 de septiembre de 2018"
+output: pdf_document
+bibliography: bibliografia.bib
+---
+
+```{r setup, include=FALSE, cache=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(readr)
+library(ggmap)
+library(knitr)
+library(tinytex)
+
+parks <- read_csv("C:/Users/Kraden/OneDrive - Universidad Andres Bello/Academia/Trabajo PUC/Doctorado/Curso de R/Evaluacion 1/parks.csv")
+species <- read_csv("C:/Users/Kraden/OneDrive - Universidad Andres Bello/Academia/Trabajo PUC/Doctorado/Curso de R/Evaluacion 1/species.csv")
+BD<- full_join(species, parks)  #se unen ambas bases de datos
+
+BD<- BD %>% rename(Spp= `Scientific Name`, Park.name= `Park Name`, Nombre.comun= `Common Names`,Con.status= `Conservation Status`)
+
+```
+
+## Introduccion
+
+Conocer el patrimonio nacional es un objetivo que ha tomado gran relevancia para la administracion, gestion  y proteccion de la biodiversidad. Debido a que las poblaciones humanas no son independiente de las dinamicas naturales, los servicios ecosistemicos forman parte importante de los recursos basicos que permiten la subsistencia de estas poblaciones. Sin embargo, la tendencia mundial es un declinamiento de la biodiversidad en comunidades locales mientras se vuelven cada vez mas homogeneas en el espacio [@hautier2018local]. Por otro lado, el manejo basado en ecosistemas ha ganado mayor relevancia alrededor del mundo, permitiendo una mejor entendimiento de la inter-relacion entre las variables naturales y los multiples usos de estas. Adicionalmente, permite dirigir su manejo de una manera mas efectiva al considerar impactos acumulativos que afectan la salud de los ecosistemas [@gaines2010evolving]. 
+
+En terminos economicos, en las ultimas dedacas se ha visto un considerable aumento en el pago de Servicios Ecosistemicos. De hecho, hoy en dia se encuentran mas de 550 programas de Pago por Servicios Ecositemicos alrededor del mundo, lo que representa un pago anual de US$36 billones, siendo ademas uno de los principales componentes de estrategias de proteccion natural [@salzman2018global]. Esto da cuenta de dos puntos muy relevantes a tomar en consideracion: 1) Conocer la biodiversidad asociada a parques naturales (PN) daria cuenta del potencial natural en cubrir servicios ecosistemicos basicos y necesarios para el normal desarrollo humano y 2) la proteccion de los ecosistemas a perturbaciones actuales y futuras permite gestionar, incluso desde un punto de vista economico, recursos que de otra forma se tendrian que suplir artificialmente.
+
+Actualmente, Estados Unidos cuenta con un total de 56 parques nacionales, de los cuales se han tenido registro de la riqueza asociada, su ubicacion geografica, estado de conservacion, entre otras observaciones. El objetivo de este trabajo fue realizar una exploracion de las observaciones registradas para estos parques nacionales y determinar datos utiles para el manejo, realizar una sugerencias sobre la utilidad de estos datos y como mejorarlos. 
+
+## Metodologia
+
+Para la realizacion de este trabajo, se utilizo una base de datos con observaciones de locacion geografica, tamaño del parque, especies presentes, estado de conservacion de estas, clasificacion taxonomicas a nivel de familias y ordenes, entre otras de menos relevancia para este estudio. Los analisis se realizaron utilizando el software de libre acceso R [@R]. La exploracion de datos considero el uso de las variables informativas, de manera tal de reducir el error asociado a datos faltantes o registros incidentales que pudieran sub o sobre-estimar la riqueza encontrada. Por tal motivo, para todos los analisis se considero solo la presencia de especies de plantas vasculares, las cuales representan de manera directa, cambios en los patrones de riqueza y una enorme diversidad de servicios ecosistemicos.
+
+
+###Visualizacion Geografica de riqueza de especies y distribucion de Parques nacionales
+
+Con el fin de tener una referencia visual de la distribucion de parques nacionales y cual es su diversidad asociada, se utilizo el paquete de R ggmap [@ggmap]. De esta forma, se se espera representar la hubicacion geografica de los distintos parques y la diversidad de plantas vasculares asociadas. Adicionalmente, se determinaron parques nacionales con presencia de familias unicas (i.e: Familias de plantas que solo fueron registrados en un solo sitio). 
+Se evaluo la posibilidad de establecer modelos lineales de la riqueza presente en funcion del Area del parque ($Km^2$).
+
+## Resultados y discusion
+
+### Distribucion de especies en PN
+```{r, echo=FALSE, warning=FALSE, message=FALSE} 
+
+
+spp.totales<- BD %>% filter(Category== "Vascular Plant") %>% dplyr::select_("Park.name", "Latitude", "Longitude", "Con.status", "Spp", "Acres") %>% group_by(Park.name, Latitude, Longitude, Acres) %>% summarize(Riqueza= n_distinct(Spp))
+```
+
+La distribucion de parques nacionales y la riqueza encontrada no se distribuyen de forma homogenea en el país. Por una parte, se puede apreciar una distribucion de areas protegidas ligadas a cadenas montañosas y costas de ambos oceanos, pudiendose observar zonas de alta y baja densidad de parques nacionales, lo que a su vez, podrian representar zonas de mayor biodiversidad. Sin emabrgo, la riqueza de plantas vasculares varia ampliamente en el espacio con un promedio de riqueza de `r round(mean(spp.totales$Riqueza))` y una desviacion estandar de `r round(sd(spp.totales$Riqueza))`, por lo que no se aprecia una relacion tan clara.
+
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, cache= TRUE, out.width= "75%"} 
+
+brks<- round (seq(from= 500, to = 7000, by= 500))
+
+map <- ggmap::get_map(location = "Estados Unidos", zoom= 3, maptype = "satellite") 
+
+Mapa<- ggmap(map) + geom_point(data= spp.totales, aes(x= Longitude, y= Latitude, size= Riqueza), color= "Red", alpha= 0.7)
+Mapa + scale_size_continuous(breaks= brks)
+
+```
+
+<small> Fig.1: Riqueza de plantas vasculares en parques nacionales. </small>
+
+
+Adicionalmente, cuando se evalua la presencia de familias de plantas unicas para solo un parque nacional, se puede apreciar que tanto la costa este como oeste de USA presentan grupos taxonomicos unicos (Fig. 2). En la costa oeste se incluyen las familias Bixaceae, Agavoideae, Apiaceae y Trimeniaceae; y en la costa este las familias Burmanniaceae, Muntingiaceae, Salviniaceae, Schizaeaceae, Cyrillaceae, Ginkgoaceae, Haemodoraceae y Lardizabalaceae
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, cache= TRUE, out.width= "90%"}
+Plant <- BD %>% filter(Category == "Vascular Plant") %>% select("Latitude", "Longitude", "Family", "Park.name") %>% 
+   group_by(Family) %>% summarize(n= n(), lat= mean(Latitude), lon= mean (Longitude)) %>% filter(n== 1) %>% 
+  group_by(lat, lon) %>% summarize(N= n())
+
+Mapa2<- ggmap(map) + geom_jitter(data= Plant, aes(x= lon, y= lat, size= N), alpha= 0.7, color= "yellow")
+Mapa2
+
+```
+<div style= "float: right; with: 40%"> 
+
+<small>Fig.2: Familias unicas presentes en PN. Se puede apreciar la presencia de una y hasta cuatro familias de plantas que solo fueron cuantificadas para un unico PN.</small>
+
+</div>
+
+
+
+
+### Relacion riqueza-Area
+
+Al evaluar la riqueza de especies de plantas en funcion del tamaño del PN, no se puede establecer una relacion clara entre estos. Sin embargo, se logra apreciar una tendencia a un rapido aumento de la diversidad hasta aproximadamente unos 5000 $Km^2$ (Fig. 3) 
+
+```{r, echo=FALSE, message=FALSE, cache=TRUE}
+library(dplyr)
+library(ggplot2)
+
+AxR<- BD %>% filter(Category== "Vascular Plant") %>% group_by(Park.name) %>% summarize(Area= mean(Acres), Riqueza= n_distinct(Spp)) %>% mutate (Area= Area*0.00404686)
+
+ggplot(AxR, aes(x= Area, y= Riqueza))+ geom_point()
+```
+Figura 3: Numero de especies de plantas vasculares registradas en PN, en funcion del area del parque.
+
+Se generaron 3 modelos para describir esta relacion, los cuales consideraron relaciones lineales y logaritmicas de la forma: 
+
+- Modelo 1: $y= x$
+
+- Modelo 2: $y= log(x)$ 
+
+- Modelo 3: $y= log(x^2)$
+ 
+La adicion de nuevas variables presentadas en la base de datos no pudieron ser utilizadas, ya que todas eran de caracter discreto y mas bien descriptivas. El mejor ajuste obtenido se obtuvo utlizando logaritmo con lo cual solo se alcanza a describir un 2.5% de la varianza de los datos. Los resultados de los modelos se resumen en la tabla 1.
+
+
+
+Tabla 1: Resumen de modelos. Se presentan los datos de $R^2$, grados de libertad (df), analisis AIC, nombre del modelo. 
+```{r, echo = FALSE, out.width= "60%"}
+library(broom)
+library(knitr)
+
+Modelo_1<- lm(Riqueza~ Area, data= AxR)
+Modelo_2<- lm(Riqueza~ I(log(Area)), data = AxR)
+Modelo_3<- lm(Riqueza~ I(log(Area^2)), data = AxR)
+
+Modelo1 <-glance(Modelo_1) %>% dplyr::select(r.squared, df, AIC) %>% mutate(Modelo = "Modelo_1")
+Modelo2 <-glance(Modelo_2) %>% dplyr::select(r.squared, df, AIC) %>% mutate(Modelo = "Modelo_2")
+Modelo3 <-glance(Modelo_3) %>% dplyr::select(r.squared, df, AIC) %>% mutate(Modelo = "Modelo_3")
+
+Modelos<- bind_rows(Modelo1, Modelo2, Modelo3) %>% arrange(AIC)
+
+kable(Modelos)
+
+
+```
+
+Al graficar la riqueza de especie en funcion del area del PN e integrando las predicciones del modelo, se puede apreciar una tendencia a un mejor ajuste en tamaños de parque menores, sin embargo la alta variacion en riqueza a tamaños altos podria indicar la accion de variables no relacionadas directamente. En este sentido, cuando se evalua la distribucion de tamaños de los PN en funcion de su hubicacion, se pueden apreciar puntos que se escapan de la tendencia global (Fig. 5). Por su latitud y longitud, estos corresponden principalmente al sector de Alaska e islas oceanicas, por lo cual, debido a tu topologia y complejidad, estas relaciones pueden seguir otras tendencias y por lo tanto no ajustar a un modelo general. Al sacar estos puntos fuera del los modelos, el ajuste de la recta explica aproximadamente un 18% de la varianza (Tabla 2).
+
+
+```{r, echo = FALSE, out.width= "80%"}
+AxR$Pred<- predict(Modelo_2, AxR, se.fit = TRUE)$fit
+AxR$SE <- predict(Modelo_2, AxR, se.fit= TRUE)$se.fit
+
+ggplot(AxR, aes(x=Area, y= Pred))+ geom_ribbon(aes(ymin= Pred-SE, ymax= Pred+SE), alpha= 0.5)+
+  geom_line()+ geom_point(x= AxR$Area, y= AxR$Riqueza)
+
+```
+
+Figura 4: Curva modelo con la forma $y= log(x)$.
+   
+
+```{r, echo = FALSE, out.width= "50%"}
+tam<- BD %>% select("Latitude", "Longitude", "Park.name", "Acres") %>% group_by(Park.name) %>% summarize(lat= mean(Latitude), lon= mean (Longitude), Area= mean(Acres)) %>% mutate (Area= Area*0.00404686)
+
+ggplot(tam, aes(x= lon, y= Area))+ geom_point()+ geom_smooth(method = "loess")
+ggplot(tam, aes(x= lat, y= Area))+ geom_point()+ geom_smooth(method = "loess")
+
+```
+Figura 5: Area del PN en funcion de su Latitud (lat) y Longitud (lon)
+
+Tabla 2: Resumen de modelos cuando se excluye los puntos sobre la latitud 50º N y longitud menor a 130º O, lo que corresponde a Alaska e islas oceanicas.
+```{r, echo=FALSE, message=FALSE, cache=TRUE}
+AxR2<- BD %>% filter(Category== "Vascular Plant" & Longitude > -130 ) %>% group_by(Park.name) %>% summarize(Area= mean(Acres), Riqueza= n_distinct(Spp)) %>% mutate (Area= Area*0.00404686)
+Modelo_1<- lm(Riqueza~ Area, data= AxR2)
+Modelo_2<- lm(Riqueza~ I(log(Area)), data = AxR2)
+Modelo_3<- lm(Riqueza~ I(log(Area^2)), data = AxR2)
+Modelo1 <-glance(Modelo_1) %>% dplyr::select(r.squared, df, AIC) %>% mutate(Modelo = "Modelo_1")
+Modelo2 <-glance(Modelo_2) %>% dplyr::select(r.squared, df, AIC) %>% mutate(Modelo = "Modelo_2")
+Modelo3 <-glance(Modelo_3) %>% dplyr::select(r.squared, df, AIC) %>% mutate(Modelo = "Modelo_3")
+Modelos<- bind_rows(Modelo1, Modelo2, Modelo3) %>% arrange(AIC)
+kable(Modelos)
+AxR2$Pred<- predict(Modelo_3, AxR2, se.fit = TRUE)$fit
+AxR2$SE <- predict(Modelo_3, AxR2, se.fit= TRUE)$se.fit
+
+```
+
+## Conclusion
+
+La distribucion no homogenea de los parques nacionales puede responder a la heterogeneidad ambiental, por lo que una estrategia parchosa y conectada podria ser una buena herramienta al momento de pensar en maneras de conservacion en base a areas protegidas. En este sentido, parques nacionales con presencia de familias unicas deberian representar una observacion mayor, debido a la posible perdida de servicios ecosistemicos unicos. Por ejemplo, la costa este reporta la presencia familias como Salviniaceae, los cuales son helechos acuaticos capaces de fijar nitrogeno, lo cual por si mismo representa un servicio ecosistemico de alto valor. 
+Adicionalmente, conocer las relaciones que expliquen la biodiversidad presente, permitiria la obtencion de modelos capaces de predecir con una mayor precision la relacion entre la riqueza esperada y el area protegida. En este sentido, complementar la base de datos con datos ambientales y de ser posible, abundancia de especies, permitiria determinar con un menor porcentaje de error cual es el area optima a proteger y con ello, idear planes de conservacion mas eficientes. De la misma forma, conociendo la heterogeneidad ambiental y pudiendo separarlas en cluster, se podrian modelar estas relaciones considerando la variabilidad/heterogeneidad topografica y las distintas dinamicas ecosistemicas.
+
+
+
+## Referencias
